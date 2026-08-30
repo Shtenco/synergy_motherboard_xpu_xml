@@ -12,7 +12,7 @@
 module xpu_ready_scheduler #(
     parameter integer NODES = 256,
     parameter integer LANES = 8,
-    parameter integer NODE_W = $clog2(NODES)
+    parameter integer NODE_W = (NODES <= 1) ? 1 : $clog2(NODES)
 ) (
     input  logic                         clk,
     input  logic                         rst_n,
@@ -28,7 +28,7 @@ module xpu_ready_scheduler #(
     // Arithmetic/control lanes report completion independently.
     input  logic [LANES-1:0]             lane_done,
 
-    // Issue interface. node ids are stable for the full cycle when valid.
+    // Issue interface. Node ids are stable for the full cycle when valid.
     output logic [LANES-1:0]             issue_valid,
     output logic [NODE_W-1:0]            issue_node [0:LANES-1],
     output logic [LANES-1:0]             lane_busy,
@@ -49,6 +49,7 @@ module xpu_ready_scheduler #(
     logic any_ready;
     logic any_idle;
     integer issues_this_cycle;
+    integer idle_lanes_this_cycle;
 
     assign lane_busy = busy_q;
 
@@ -57,6 +58,7 @@ module xpu_ready_scheduler #(
         selected_bits = '0;
         scan_bits = ready_bits;
         issues_this_cycle = 0;
+        idle_lanes_this_cycle = 0;
 
         // New ready events are visible on the following cycle. This keeps the
         // contract deterministic and avoids a combinational path through the
@@ -75,6 +77,8 @@ module xpu_ready_scheduler #(
                         issues_this_cycle = issues_this_cycle + 1;
                     end
                 end
+                if (!found)
+                    idle_lanes_this_cycle = idle_lanes_this_cycle + 1;
             end
         end
 
@@ -87,10 +91,10 @@ module xpu_ready_scheduler #(
         logic [NODES-1:0] next_ready;
         logic [LANES-1:0] next_busy;
         if (!rst_n) begin
-            ready_bits        <= '0;
-            busy_q            <= '0;
-            issue_count       <= 64'd0;
-            lane_idle_cycles  <= 64'd0;
+            ready_bits         <= '0;
+            busy_q             <= '0;
+            issue_count        <= 64'd0;
+            lane_idle_cycles   <= 64'd0;
             ready_empty_cycles <= 64'd0;
         end else begin
             next_ready = ready_bits & ~selected_bits;
@@ -110,13 +114,9 @@ module xpu_ready_scheduler #(
             busy_q <= next_busy;
 
             issue_count <= issue_count + issues_this_cycle;
+            lane_idle_cycles <= lane_idle_cycles + idle_lanes_this_cycle;
             if (any_idle && !any_ready)
                 ready_empty_cycles <= ready_empty_cycles + 64'd1;
-
-            // Sum idle lanes each cycle rather than counting only fully-idle cycles.
-            for (i = 0; i < LANES; i = i + 1)
-                if (!busy_q[i])
-                    lane_idle_cycles <= lane_idle_cycles + 64'd1;
         end
     end
 
