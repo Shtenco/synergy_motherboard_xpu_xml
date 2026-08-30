@@ -1,0 +1,35 @@
+{
+  "schema": "shtenco.xpu.routed_tile_model.v22",
+  "claim_boundary": "synthetic cycle model, not RTL/silicon timing",
+  "nodes": 4096,
+  "edges": 8064,
+  "cases": {
+    "8": {
+      "central_1_event_per_cycle": {"cycles":8064,"events":8064,"bank_stalls":0,"lane_utilization":0.0625,"sources":64,"lane_idle_slots":60480},
+      "central_8_events_per_cycle": {"cycles":1010,"events":8064,"bank_stalls":0,"lane_utilization":0.499009900990099,"sources":64,"lane_idle_slots":4048},
+      "routed_2x_lane_ports": {
+        "8": {"cycles":1014,"events":8064,"bank_stalls":106886,"lane_utilization":0.4970414201183432,"sources":64,"lane_idle_slots":4080},
+        "16": {"cycles":525,"events":8064,"bank_stalls":33021,"lane_utilization":0.96,"sources":64,"lane_idle_slots":168},
+        "32": {"cycles":517,"events":8064,"bank_stalls":3101,"lane_utilization":0.9748549323017408,"sources":64,"lane_idle_slots":104}
+      }
+    },
+    "32": {
+      "central_1_event_per_cycle": {"cycles":8064,"events":8064,"bank_stalls":0,"lane_utilization":0.015625,"sources":64,"lane_idle_slots":254016},
+      "central_8_events_per_cycle": {"cycles":1010,"events":8064,"bank_stalls":0,"lane_utilization":0.12475247524752475,"sources":64,"lane_idle_slots":28288},
+      "routed_2x_lane_ports": {
+        "32": {"cycles":279,"events":8064,"bank_stalls":19328,"lane_utilization":0.45161290322580644,"sources":64,"lane_idle_slots":4896},
+        "64": {"cycles":165,"events":8064,"bank_stalls":8470,"lane_utilization":0.7636363636363637,"sources":64,"lane_idle_slots":1248},
+        "128": {"cycles":134,"events":8064,"bank_stalls":2522,"lane_utilization":0.9402985074626866,"sources":64,"lane_idle_slots":256}
+      }
+    },
+    "64": {
+      "central_1_event_per_cycle": {"cycles":8064,"events":8064,"bank_stalls":0,"lane_utilization":0.0078125,"sources":64,"lane_idle_slots":512064},
+      "central_8_events_per_cycle": {"cycles":1010,"events":8064,"bank_stalls":0,"lane_utilization":0.062376237623762376,"sources":64,"lane_idle_slots":60608},
+      "routed_2x_lane_ports": {
+        "64": {"cycles":167,"events":8064,"bank_stalls":8349,"lane_utilization":0.3772455089820359,"sources":64,"lane_idle_slots":6656},
+        "128": {"cycles":120,"events":8064,"bank_stalls":3202,"lane_utilization":0.525,"sources":64,"lane_idle_slots":3648},
+        "256": {"cycles":96,"events":8064,"bank_stalls":1228,"lane_utilization":0.65625,"sources":64,"lane_idle_slots":2112}
+      }
+    }
+  }
+}
