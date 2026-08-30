@@ -1,0 +1,44 @@
+{
+  "schema": "shtenco.xpu.baseline.v1",
+  "status": "MODEL_NOT_SILICON",
+  "compute": {
+    "compute_chiplets": 4,
+    "eml_lanes_total": 8192,
+    "eml_lanes_per_chiplet": 2048,
+    "target_frequency_hz": 1200000000,
+    "modeled_sustained_utilization": 0.72,
+    "local_sram_mib_per_chiplet": 12,
+    "compute_die_area_mm2_each": 60.0
+  },
+  "io_control": {
+    "io_die_area_mm2": 90.0,
+    "host_link": "PCIe 5.0 x16 baseline; CXL/PCIe 6 option",
+    "pcie5_x16_effective_gbs_per_direction": 63.02,
+    "pcie6_x16_model_gbs_per_direction": 128.0
+  },
+  "memory": {
+    "hbm_stacks": 4,
+    "hbm3e_bandwidth_gbs_per_stack": 1180.0,
+    "raw_hbm_bandwidth_tb_s": 4.72
+  },
+  "persistent_state": {
+    "technology": "ABSTRACT_PERSISTENT_TIER",
+    "modeled_bandwidth_gbs": 256.0,
+    "note": "Replace this coefficient with measured MRAM/ReRAM/NAND/CXL memory data when a concrete implementation is selected."
+  },
+  "package": {
+    "interposer_x_mm": 55.0,
+    "interposer_y_mm": 55.0,
+    "substrate_x_mm": 65.0,
+    "substrate_y_mm": 65.0,
+    "target_power_envelope_w": [200, 250, 300]
+  },
+  "energy_sweep": {
+    "eml_primitive_energy_pj": [5, 10, 20, 40],
+    "note": "Exploratory sensitivity range only; not a measured cell value."
+  },
+  "sources": {
+    "hbm3e": "Samsung Semiconductor HBM3E public product page: up to 1,180 GB/s per stack",
+    "pcie": "PCI-SIG public speeds-and-feeds material: PCIe 5.0 x16 ~504 Gb/s = ~63.02 GB/s per direction after encoding overhead"
+  }
+}
