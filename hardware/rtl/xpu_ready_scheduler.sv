@@ -1,10 +1,11 @@
-// SHTENCO XPU V2.1 — bounded ready-node scheduler proof RTL.
+// SHTENCO XPU V2.2 — bounded ready-node scheduler proof RTL.
 //
-// - NODES is intentionally small enough for a ready bitmap in the FPGA proof.
-// - Up to LANES ready nodes can issue per cycle to currently idle lanes.
-// - Incoming ready notifications set bits; issued nodes clear bits.
-// - Lane completion can free and reissue the same lane in one cycle.
-// - halt stops new issues without destroying ready/busy state.
+// Supports both:
+// - scalar ready_in from the V2.1 dependency reference path;
+// - parallel ready_set_bits from V2.2 operand banks.
+//
+// Up to LANES ready nodes can issue per cycle. lane_done allows same-cycle
+// retire+reissue. halt stops new issues without destroying scheduler state.
 
 module xpu_ready_scheduler #(
     parameter integer NODES = 256,
@@ -17,6 +18,7 @@ module xpu_ready_scheduler #(
 
     input  logic                         ready_in_valid,
     input  logic [NODE_W-1:0]            ready_in_node,
+    input  logic [NODES-1:0]             ready_set_bits,
 
     input  logic                         seed_ready_valid,
     input  logic [NODE_W-1:0]            seed_ready_node,
@@ -87,7 +89,7 @@ module xpu_ready_scheduler #(
             lane_idle_cycles   <= 64'd0;
             ready_empty_cycles <= 64'd0;
         end else begin
-            next_ready = ready_bits & ~selected_bits;
+            next_ready = (ready_bits & ~selected_bits) | ready_set_bits;
             if (ready_in_valid)
                 next_ready[ready_in_node] = 1'b1;
             if (seed_ready_valid)
