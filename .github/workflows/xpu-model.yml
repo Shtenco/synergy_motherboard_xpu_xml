@@ -41,6 +41,13 @@ jobs:
       - name: Verify LUT/interpolation against Decimal EML
         run: python3 software/reference/eml_lut_model.py --samples 50000 | tee artifacts/eml_lut_accuracy.txt
 
+      - name: Pack, validate and execute XPU graph binary
+        run: |
+          python3 software/reference/xpu_graph.py --out artifacts/demo_graph.xpu \
+            | tee artifacts/xpu_graph_conformance.txt
+          test -s artifacts/demo_graph.xpu
+          grep -q 'XPU_V2_GRAPH_PASS' artifacts/xpu_graph_conformance.txt
+
       - name: Install Icarus Verilog
         run: |
           sudo apt-get update
