@@ -4,10 +4,7 @@
 // - Up to LANES ready nodes can issue per cycle to currently idle lanes.
 // - Incoming ready notifications set bits; issued nodes clear bits.
 // - Lane completion can free and reissue the same lane in one cycle.
-//
-// A production scheduler will replace the flat bitmap with hierarchical/banked
-// queues, priorities and work stealing. This module freezes the first observable
-// issue contract and counters.
+// - halt stops new issues without destroying ready/busy state.
 
 module xpu_ready_scheduler #(
     parameter integer NODES = 256,
@@ -16,6 +13,7 @@ module xpu_ready_scheduler #(
 ) (
     input  logic                         clk,
     input  logic                         rst_n,
+    input  logic                         halt,
 
     input  logic                         ready_in_valid,
     input  logic [NODE_W-1:0]            ready_in_node,
@@ -55,13 +53,10 @@ module xpu_ready_scheduler #(
         issues_this_cycle = 0;
         idle_lanes_this_cycle = 0;
 
-        // lane_done means the current result retires at this edge, so that lane
-        // may accept a new operation in the same cycle. This avoids an artificial
-        // bubble and permits one accepted operation/lane/cycle after fill.
         for (lane = 0; lane < LANES; lane = lane + 1) begin
             issue_node[lane] = '0;
             found = 1'b0;
-            if (!busy_q[lane] || lane_done[lane]) begin
+            if (!halt && (!busy_q[lane] || lane_done[lane])) begin
                 for (node = 0; node < NODES; node = node + 1) begin
                     if (!found && scan_bits[node]) begin
                         issue_valid[lane] = 1'b1;
@@ -78,7 +73,7 @@ module xpu_ready_scheduler #(
         end
 
         any_ready = |ready_bits;
-        any_available_lane = |((~busy_q) | lane_done);
+        any_available_lane = !halt && |((~busy_q) | lane_done);
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
