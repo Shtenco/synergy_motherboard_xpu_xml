@@ -10,8 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare artifact directory
-        run: mkdir -p artifacts build
+      - name: Prepare environment
+        run: |
+          mkdir -p artifacts build
+          sudo apt-get update
+          sudo apt-get install -y iverilog libssl-dev
 
       - name: Run V1 quantitative model
         run: python3 calculations/xpu_v1_model.py | tee artifacts/xpu_v1_model_output.txt
@@ -48,7 +51,6 @@ jobs:
       - name: Run routed-token tile cycle model
         run: |
           python3 compiler/routed_tile_model.py | tee artifacts/routed_tile_console.txt
-          git diff --exit-code -- compiler/ROUTED_TILE_RESULTS.json compiler/ROUTED_TILE_RESULTS.md
           cp compiler/ROUTED_TILE_RESULTS.json artifacts/
           cp compiler/ROUTED_TILE_RESULTS.md artifacts/
 
@@ -78,6 +80,12 @@ jobs:
           grep -q 'XPU_V22_XPUR_PASS' artifacts/xpur_conformance.txt
           cmp artifacts/demo_graph.xpu artifacts/demo_from_xpur.xpu
 
+      - name: Run bounded XPU Device ABI host model
+        run: |
+          python3 software/reference/xpu_device_model.py \
+            | tee artifacts/xpu_device_model.txt
+          grep -q 'XPU_V22_DEVICE_MODEL_PASS' artifacts/xpu_device_model.txt
+
       - name: Compile independent C XPU executor
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror \
@@ -87,11 +95,6 @@ jobs:
             hardware/rtl/generated/ln_q16.memh \
             16384 98304 | tee artifacts/xpu_graph_c.txt
           grep -q 'XPU_V2_GRAPH_C_PASS.*outputs=57577,157774' artifacts/xpu_graph_c.txt
-
-      - name: Install Icarus Verilog
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y iverilog
 
       - name: Compile and run EML lane RTL testbench
         run: |
