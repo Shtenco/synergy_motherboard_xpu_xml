@@ -1,4 +1,4 @@
-name: XPU model and 3D export
+name: XPU model, DSE, RTL and 3D
 
 on:
   push:
@@ -10,11 +10,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run quantitative model
-        run: python3 calculations/xpu_v1_model.py | tee xpu_model_output.txt
+      - name: Prepare artifact directory
+        run: mkdir -p artifacts build
 
-      - name: Run EML Q16 reference self-test
+      - name: Run V1 quantitative model
+        run: python3 calculations/xpu_v1_model.py | tee artifacts/xpu_v1_model_output.txt
+
+      - name: Run V2 design-space search
+        run: |
+          python3 calculations/xpu_v2_dse.py \
+            --csv artifacts/xpu_v2_dse_all.csv \
+            --report artifacts/XPU_V2_DSE_RESULTS.md \
+            | tee artifacts/xpu_v2_dse_console.txt
+          cmp calculations/XPU_V2_DSE_RESULTS.md artifacts/XPU_V2_DSE_RESULTS.md
+
+      - name: Run locality-aware compiler placement benchmark
+        run: |
+          python3 compiler/place_graph.py \
+            --out artifacts/PLACEMENT_RESULTS.json \
+            --report artifacts/PLACEMENT_RESULTS.md \
+            | tee artifacts/placement_console.txt
+          cmp compiler/PLACEMENT_RESULTS.md artifacts/PLACEMENT_RESULTS.md
+
+      - name: Run Decimal EML Q16 reference self-test
         run: python3 software/reference/eml_q16.py
+
+      - name: Generate FPGA EML lookup tables
+        run: python3 tools/gen_eml_lut.py
+
+      - name: Verify LUT/interpolation against Decimal EML
+        run: python3 software/reference/eml_lut_model.py --samples 50000 | tee artifacts/eml_lut_accuracy.txt
+
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+
+      - name: Compile and run EML lane RTL testbench
+        run: |
+          iverilog -g2012 -Wall \
+            -o build/eml_lane_tb \
+            hardware/rtl/eml_lane_lut.sv \
+            hardware/rtl/tb_eml_lane_lut.sv
+          vvp build/eml_lane_tb | tee artifacts/eml_lane_rtl.txt
+          grep -q 'XPU_V2_EML_LANE_RTL_PASS' artifacts/eml_lane_rtl.txt
+
+      - name: Compile replicated EML tile
+        run: |
+          iverilog -g2012 -Wall -s eml_tile \
+            -o build/eml_tile_compile \
+            hardware/rtl/eml_lane_lut.sv \
+            hardware/rtl/eml_tile.sv
 
       - name: Export ASCII STL
         run: |
@@ -22,11 +68,12 @@ jobs:
           test -s hardware/3d/xpu_package.stl
           head -n 1 hardware/3d/xpu_package.stl | grep -q '^solid shtenco_xpu_v1'
 
-      - name: Upload model artifacts
+      - name: Upload XPU V2 engineering artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: xpu-v1-model-artifacts
+          name: xpu-v2-engineering-artifacts
           path: |
-            xpu_model_output.txt
+            artifacts/
+            hardware/rtl/generated/*.memh
             hardware/3d/xpu_package.stl
             hardware/3d/xpu_package.scad
