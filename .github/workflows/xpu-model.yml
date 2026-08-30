@@ -1,4 +1,4 @@
-name: XPU model, DSE, RTL and 3D
+name: XPU model, DSE, routed RTL and 3D
 
 on:
   push:
@@ -24,6 +24,11 @@ jobs:
             | tee artifacts/xpu_v2_dse_console.txt
           cmp calculations/XPU_V2_DSE_RESULTS.md artifacts/XPU_V2_DSE_RESULTS.md
 
+      - name: Run V2 NoC and route-event budgets
+        run: |
+          python3 calculations/xpu_v2_noc.py | tee artifacts/xpu_v2_noc.txt
+          python3 calculations/xpu_v22_route_budget.py | tee artifacts/xpu_v22_route_budget.txt
+
       - name: Run locality-aware compiler placement benchmark
         run: |
           python3 compiler/place_graph.py \
@@ -40,6 +45,13 @@ jobs:
             | tee artifacts/scheduler_console.txt
           cmp compiler/SCHEDULER_RESULTS.md artifacts/SCHEDULER_RESULTS.md
 
+      - name: Run routed-token tile cycle model
+        run: |
+          python3 compiler/routed_tile_model.py | tee artifacts/routed_tile_console.txt
+          git diff --exit-code -- compiler/ROUTED_TILE_RESULTS.json compiler/ROUTED_TILE_RESULTS.md
+          cp compiler/ROUTED_TILE_RESULTS.json artifacts/
+          cp compiler/ROUTED_TILE_RESULTS.md artifacts/
+
       - name: Run Decimal EML Q16 reference self-test
         run: python3 software/reference/eml_q16.py
 
@@ -49,12 +61,32 @@ jobs:
       - name: Verify LUT/interpolation against Decimal EML
         run: python3 software/reference/eml_lut_model.py --samples 50000 | tee artifacts/eml_lut_accuracy.txt
 
-      - name: Pack, validate and execute XPU graph binary
+      - name: Pack, validate and execute XPU semantic graph
         run: |
           python3 software/reference/xpu_graph.py --out artifacts/demo_graph.xpu \
             | tee artifacts/xpu_graph_conformance.txt
           test -s artifacts/demo_graph.xpu
           grep -q 'XPU_V2_GRAPH_PASS' artifacts/xpu_graph_conformance.txt
+
+      - name: Lower XPU to XPUR and execute routed image
+        run: |
+          python3 software/reference/xpur_image.py \
+            --xpu-out artifacts/demo_from_xpur.xpu \
+            --xpur-out artifacts/demo_graph.xpur \
+            | tee artifacts/xpur_conformance.txt
+          test -s artifacts/demo_graph.xpur
+          grep -q 'XPU_V22_XPUR_PASS' artifacts/xpur_conformance.txt
+          cmp artifacts/demo_graph.xpu artifacts/demo_from_xpur.xpu
+
+      - name: Compile independent C XPU executor
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror \
+            software/reference/xpu_graph_c.c -lcrypto -o build/xpu_graph_c
+          build/xpu_graph_c artifacts/demo_graph.xpu \
+            hardware/rtl/generated/exp_q16.memh \
+            hardware/rtl/generated/ln_q16.memh \
+            16384 98304 | tee artifacts/xpu_graph_c.txt
+          grep -q 'XPU_V2_GRAPH_C_PASS.*outputs=57577,157774' artifacts/xpu_graph_c.txt
 
       - name: Install Icarus Verilog
         run: |
@@ -76,6 +108,39 @@ jobs:
             -o build/eml_tile_compile \
             hardware/rtl/eml_lane_lut.sv \
             hardware/rtl/eml_tile.sv
+
+      - name: Compile and run V2.1 scalar-dependency tile
+        run: |
+          iverilog -g2012 -Wall -s tb_xpu_tile_core \
+            -o build/xpu_v21_tile_tb \
+            hardware/rtl/eml_lane_lut.sv \
+            hardware/rtl/eml_tile.sv \
+            hardware/rtl/xpu_graph_store.sv \
+            hardware/rtl/xpu_value_store.sv \
+            hardware/rtl/xpu_completion_bitmap.sv \
+            hardware/rtl/xpu_dependency_engine.sv \
+            hardware/rtl/xpu_ready_scheduler.sv \
+            hardware/rtl/xpu_tile_core.sv \
+            hardware/rtl/tb_xpu_tile_core.sv
+          vvp build/xpu_v21_tile_tb | tee artifacts/xpu_v21_tile_rtl.txt
+          grep -q 'XPU_V21_TILE_PASS' artifacts/xpu_v21_tile_rtl.txt
+
+      - name: Compile and run V2.2 routed-token tile
+        run: |
+          iverilog -g2012 -Wall -s tb_xpu_routed_tile_v22 \
+            -o build/xpu_v22_routed_tb \
+            hardware/rtl/eml_lane_lut.sv \
+            hardware/rtl/eml_tile.sv \
+            hardware/rtl/xpu_graph_store.sv \
+            hardware/rtl/xpu_ready_scheduler.sv \
+            hardware/rtl/xpu_operand_store.sv \
+            hardware/rtl/xpu_result_store.sv \
+            hardware/rtl/xpu_route_table2.sv \
+            hardware/rtl/xpu_route_emit2.sv \
+            hardware/rtl/xpu_routed_tile_v22.sv \
+            hardware/rtl/tb_xpu_routed_tile_v22.sv
+          vvp build/xpu_v22_routed_tb | tee artifacts/xpu_v22_routed_rtl.txt
+          grep -q 'XPU_V22_ROUTED_TILE_PASS' artifacts/xpu_v22_routed_rtl.txt
 
       - name: Export V1 ASCII STL
         run: |
