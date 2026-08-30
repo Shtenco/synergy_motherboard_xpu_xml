@@ -3,7 +3,7 @@
 // - NODES is intentionally small enough for a ready bitmap in the FPGA proof.
 // - Up to LANES ready nodes can issue per cycle to currently idle lanes.
 // - Incoming ready notifications set bits; issued nodes clear bits.
-// - Lane completion clears the corresponding busy bit.
+// - Lane completion can free and reissue the same lane in one cycle.
 //
 // A production scheduler will replace the flat bitmap with hierarchical/banked
 // queues, priorities and work stealing. This module freezes the first observable
@@ -17,23 +17,18 @@ module xpu_ready_scheduler #(
     input  logic                         clk,
     input  logic                         rst_n,
 
-    // A node whose dependency count reached zero.
     input  logic                         ready_in_valid,
     input  logic [NODE_W-1:0]            ready_in_node,
 
-    // Optional direct loader path for source/constant nodes.
     input  logic                         seed_ready_valid,
     input  logic [NODE_W-1:0]            seed_ready_node,
 
-    // Arithmetic/control lanes report completion independently.
     input  logic [LANES-1:0]             lane_done,
 
-    // Issue interface. Node ids are stable for the full cycle when valid.
     output logic [LANES-1:0]             issue_valid,
     output logic [NODE_W-1:0]            issue_node [0:LANES-1],
     output logic [LANES-1:0]             lane_busy,
 
-    // Proof counters for future FPGA performance attribution.
     output logic [63:0]                  issue_count,
     output logic [63:0]                  lane_idle_cycles,
     output logic [63:0]                  ready_empty_cycles
@@ -47,7 +42,7 @@ module xpu_ready_scheduler #(
     integer node;
     logic found;
     logic any_ready;
-    logic any_idle;
+    logic any_available_lane;
     integer issues_this_cycle;
     integer idle_lanes_this_cycle;
 
@@ -60,13 +55,13 @@ module xpu_ready_scheduler #(
         issues_this_cycle = 0;
         idle_lanes_this_cycle = 0;
 
-        // New ready events are visible on the following cycle. This keeps the
-        // contract deterministic and avoids a combinational path through the
-        // dependency engine into lane operand selection.
+        // lane_done means the current result retires at this edge, so that lane
+        // may accept a new operation in the same cycle. This avoids an artificial
+        // bubble and permits one accepted operation/lane/cycle after fill.
         for (lane = 0; lane < LANES; lane = lane + 1) begin
             issue_node[lane] = '0;
             found = 1'b0;
-            if (!busy_q[lane]) begin
+            if (!busy_q[lane] || lane_done[lane]) begin
                 for (node = 0; node < NODES; node = node + 1) begin
                     if (!found && scan_bits[node]) begin
                         issue_valid[lane] = 1'b1;
@@ -83,7 +78,7 @@ module xpu_ready_scheduler #(
         end
 
         any_ready = |ready_bits;
-        any_idle = |(~busy_q);
+        any_available_lane = |((~busy_q) | lane_done);
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -115,7 +110,7 @@ module xpu_ready_scheduler #(
 
             issue_count <= issue_count + issues_this_cycle;
             lane_idle_cycles <= lane_idle_cycles + idle_lanes_this_cycle;
-            if (any_idle && !any_ready)
+            if (any_available_lane && !any_ready)
                 ready_empty_cycles <= ready_empty_cycles + 64'd1;
         end
     end
