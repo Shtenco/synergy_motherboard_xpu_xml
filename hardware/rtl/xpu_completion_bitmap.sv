@@ -2,8 +2,7 @@
 //
 // Multiple lanes may complete in one cycle. A flat bitmap absorbs those events
 // and exposes one node completion at a time to the scalar dependency walker.
-// This deliberately decouples arithmetic completion bandwidth from the first
-// bounded dependency-engine implementation.
+// The loader may also inject source/constant nodes as already-complete tokens.
 
 module xpu_completion_bitmap #(
     parameter integer NODES = 256,
@@ -16,11 +15,14 @@ module xpu_completion_bitmap #(
     input  logic [LANES-1:0]             lane_done,
     input  logic [NODE_W-1:0]            lane_done_node [0:LANES-1],
 
+    input  logic                         seed_complete_valid,
+    input  logic [NODE_W-1:0]            seed_complete_node,
+
     output logic                         complete_valid,
     output logic [NODE_W-1:0]            complete_node,
     input  logic                         complete_ready,
 
-    output logic [63:0]                  accepted_lane_completions,
+    output logic [63:0]                  accepted_completions,
     output logic [63:0]                  dependency_backpressure_cycles
 );
 
@@ -42,7 +44,7 @@ module xpu_completion_bitmap #(
             end
         end
 
-        accepts_this_cycle = 0;
+        accepts_this_cycle = seed_complete_valid ? 1 : 0;
         for (lane = 0; lane < LANES; lane = lane + 1)
             if (lane_done[lane])
                 accepts_this_cycle = accepts_this_cycle + 1;
@@ -53,18 +55,20 @@ module xpu_completion_bitmap #(
         logic [NODES-1:0] next_pending;
         if (!rst_n) begin
             pending_bits                   <= '0;
-            accepted_lane_completions      <= 64'd0;
+            accepted_completions           <= 64'd0;
             dependency_backpressure_cycles <= 64'd0;
         end else begin
             next_pending = pending_bits;
             if (complete_valid && complete_ready)
                 next_pending[complete_node] = 1'b0;
+            if (seed_complete_valid)
+                next_pending[seed_complete_node] = 1'b1;
             for (i = 0; i < LANES; i = i + 1)
                 if (lane_done[i])
                     next_pending[lane_done_node[i]] = 1'b1;
             pending_bits <= next_pending;
 
-            accepted_lane_completions <= accepted_lane_completions + accepts_this_cycle;
+            accepted_completions <= accepted_completions + accepts_this_cycle;
             if (complete_valid && !complete_ready)
                 dependency_backpressure_cycles <= dependency_backpressure_cycles + 64'd1;
         end
