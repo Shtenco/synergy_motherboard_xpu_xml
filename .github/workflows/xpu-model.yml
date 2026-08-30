@@ -1,0 +1,32 @@
+name: XPU model and 3D export
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run quantitative model
+        run: python3 calculations/xpu_v1_model.py | tee xpu_model_output.txt
+
+      - name: Run EML Q16 reference self-test
+        run: python3 software/reference/eml_q16.py
+
+      - name: Export ASCII STL
+        run: |
+          python3 hardware/3d/export_stl.py
+          test -s hardware/3d/xpu_package.stl
+          head -n 1 hardware/3d/xpu_package.stl | grep -q '^solid shtenco_xpu_v1'
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xpu-v1-model-artifacts
+          path: |
+            xpu_model_output.txt
+            hardware/3d/xpu_package.stl
+            hardware/3d/xpu_package.scad
