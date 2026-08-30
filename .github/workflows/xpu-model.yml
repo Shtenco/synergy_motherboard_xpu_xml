@@ -32,6 +32,14 @@ jobs:
             | tee artifacts/placement_console.txt
           cmp compiler/PLACEMENT_RESULTS.md artifacts/PLACEMENT_RESULTS.md
 
+      - name: Run ready-node scheduler latency benchmark
+        run: |
+          python3 compiler/schedule_model.py \
+            --out artifacts/SCHEDULER_RESULTS.json \
+            --report artifacts/SCHEDULER_RESULTS.md \
+            | tee artifacts/scheduler_console.txt
+          cmp compiler/SCHEDULER_RESULTS.md artifacts/SCHEDULER_RESULTS.md
+
       - name: Run Decimal EML Q16 reference self-test
         run: python3 software/reference/eml_q16.py
 
