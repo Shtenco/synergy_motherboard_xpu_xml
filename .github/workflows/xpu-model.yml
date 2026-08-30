@@ -69,11 +69,17 @@ jobs:
             hardware/rtl/eml_lane_lut.sv \
             hardware/rtl/eml_tile.sv
 
-      - name: Export ASCII STL
+      - name: Export V1 ASCII STL
         run: |
           python3 hardware/3d/export_stl.py
           test -s hardware/3d/xpu_package.stl
           head -n 1 hardware/3d/xpu_package.stl | grep -q '^solid shtenco_xpu_v1'
+
+      - name: Export V2 ASCII STL
+        run: |
+          python3 hardware/3d/export_v2_stl.py
+          test -s hardware/3d/xpu_v2_package.stl
+          head -n 1 hardware/3d/xpu_v2_package.stl | grep -q '^solid shtenco_xpu_v2'
 
       - name: Upload XPU V2 engineering artifacts
         uses: actions/upload-artifact@v4
@@ -84,3 +90,5 @@ jobs:
             hardware/rtl/generated/*.memh
             hardware/3d/xpu_package.stl
             hardware/3d/xpu_package.scad
+            hardware/3d/xpu_v2_package.stl
+            hardware/3d/xpu_v2_package.scad
