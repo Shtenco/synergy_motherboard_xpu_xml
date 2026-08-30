@@ -1,0 +1,58 @@
+{
+  "schema": "shtenco.xpu.dse.v2",
+  "status": "MODEL_NOT_SILICON",
+  "search_space": {
+    "chiplets": [2, 4, 6],
+    "lanes_per_chiplet": [1024, 1536, 2048, 3072, 4096],
+    "frequency_ghz": [0.8, 1.0, 1.2, 1.4],
+    "utilization": [0.65, 0.72, 0.8],
+    "hbm_stacks": [4, 6],
+    "hbm_types": {
+      "HBM3E": {
+        "bandwidth_tb_s_per_stack": 1.2,
+        "source_note": "Micron public HBM3E page: >1.2 TB/s per stack; model pins 1.2."
+      },
+      "HBM4": {
+        "bandwidth_tb_s_per_stack": 2.8,
+        "source_note": "Micron public HBM portfolio page: >2.8 TB/s per stack; comparison model pins 2.8."
+      }
+    },
+    "remote_edge_fraction": [0.05, 0.1, 0.2],
+    "sram_mib_per_chiplet": [8, 12, 16]
+  },
+  "workloads": {
+    "dense_local": {"hbm_bytes_per_eml": 0.25, "result_bytes": 4.0, "fanout": 1.15},
+    "balanced_graph": {"hbm_bytes_per_eml": 0.75, "result_bytes": 4.0, "fanout": 1.25},
+    "state_heavy": {"hbm_bytes_per_eml": 2.0, "result_bytes": 8.0, "fanout": 1.1}
+  },
+  "physical_assumptions": {
+    "baseline": {
+      "eml_energy_pj": 12.0,
+      "lane_area_mm2": 0.018,
+      "noc_energy_pj_per_byte": 8.0,
+      "noc_capacity_tb_s_per_chiplet": 2.0,
+      "sram_power_w_per_mib": 0.1,
+      "hbm_power_w_per_stack": 12.0,
+      "io_control_fixed_w": 35.0,
+      "routing_area_overhead_fraction": 0.25,
+      "sram_area_mm2_per_mib": 0.65
+    },
+    "sensitivity": {
+      "eml_energy_pj": [8.0, 12.0, 16.0, 20.0],
+      "lane_area_mm2": [0.012, 0.018, 0.024],
+      "noc_energy_pj_per_byte": [4.0, 8.0, 12.0]
+    },
+    "note": "Baseline coefficients are placeholders until FPGA/ASIC/board measurements replace them. Sensitivity values are not ranked against each other as if they were design choices."
+  },
+  "model": {
+    "max_compute_die_area_mm2_each": 140.0,
+    "current_floorplan_max_chiplets": 4,
+    "current_floorplan_max_hbm_stacks": 4,
+    "power_budgets_w": [200, 250, 300]
+  },
+  "host_links": {
+    "PCIe5_x16_effective_gb_s_per_direction": 63.02,
+    "PCIe6_x16_model_gb_s_per_direction": 128.0,
+    "note": "PCI-SIG states PCIe 6.0 x16 up to 256 GB/s aggregate; DSE uses 128 GB/s per direction as a nominal model."
+  }
+}
