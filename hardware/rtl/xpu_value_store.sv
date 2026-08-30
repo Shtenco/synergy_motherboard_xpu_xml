@@ -24,7 +24,10 @@ module xpu_value_store #(
     input  logic [NODE_W-1:0]            read_a_node [0:LANES-1],
     input  logic [NODE_W-1:0]            read_b_node [0:LANES-1],
     output logic signed [31:0]           read_a_value [0:LANES-1],
-    output logic signed [31:0]           read_b_value [0:LANES-1]
+    output logic signed [31:0]           read_b_value [0:LANES-1],
+
+    input  logic [NODE_W-1:0]            debug_node,
+    output logic signed [31:0]           debug_value
 );
 
     logic signed [31:0] value_mem [0:NODES-1];
@@ -35,6 +38,7 @@ module xpu_value_store #(
             read_a_value[i] = value_mem[read_a_node[i]];
             read_b_value[i] = value_mem[read_b_node[i]];
         end
+        debug_value = value_mem[debug_node];
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
