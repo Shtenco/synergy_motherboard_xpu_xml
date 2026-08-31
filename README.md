@@ -2,6 +2,8 @@
 
 Research and engineering repository for a **persistent programmable dataflow XPU** built around EML computational primitives.
 
+The current development line is **XPU V2.4 Global Wavefront**: the fixed-latency throughput path has no runtime dependency walker. The compiler assigns `(chiplet, cluster, tile, lane, phase, operand banks)` and reserves static transport ahead of execution. Variable-latency regions use distributed operand-token matching; the old central walker remains only as a bounded debug/control fallback.
+
 The long-term hypothesis is that workloads traditionally split across **CPU, GPU, RAM and SSD** can be mapped onto one capability-addressed fabric with three state classes:
 
 - **Value State** — active scalar/vector/tensor values;
@@ -10,63 +12,88 @@ The long-term hypothesis is that workloads traditionally split across **CPU, GPU
 
 The repository deliberately separates **measured software facts**, **parameterized architecture models**, **FPGA targets**, and **future ASIC hypotheses**.
 
-## XPU V1 baseline
+## Current V2.4 modeled package
 
-The first quantitative baseline models a 2.5D package with:
+The active V2.4 compiler model uses:
 
 - 4 compute chiplets;
-- 8,192 total EML lanes;
-- 1.2 GHz target lane clock;
-- 72% modeled sustained utilization;
-- 4 HBM3E stacks;
-- central I/O/control die;
-- persistent-state tier;
-- PCIe/CXL host interface;
-- capability/IOMMU constrained DMA model inherited from the TURBO XPU work.
+- 3,072 EML lanes/chiplet;
+- 12,288 EML lanes/package;
+- 384 tiles/chiplet;
+- 8 lanes/tile;
+- 24 clusters/chiplet;
+- 16 tiles/cluster;
+- 1.2 GHz modeled lane clock;
+- 32 A banks + 32 B banks/tile;
+- tagless static wavefront transport for fixed-latency regions;
+- distributed-token fallback for variable-latency regions.
 
-At these assumptions the analytical ceiling is **7.077888 T EML primitives/s**. This is **not FLOPS** and must not be compared directly with GPU TFLOPS/TOPS until an EML-to-workload equivalence metric is defined.
+The raw model ceiling is **14.7456 T EML/s**. This is **not measured silicon performance, FLOPS, or GPU TOPS**.
 
-With 4 x 1,180 GB/s HBM3E stacks, raw package bandwidth is **4.72 TB/s**, giving a compute-memory balance of about **1.50 EML-op/byte**. By contrast, PCIe 5.0 x16 (~63.02 GB/s per direction after encoding overhead) requires about **112.3 EML-op/byte** to keep the same compute fabric occupied. That gap is the quantitative reason the architecture emphasizes resident/persistent state and near-data execution.
+## V2.4 local compiler result
+
+For a deterministic graph envelope with edge locality:
+
+```text
+same tile                    80%
+same cluster                 15%
+same chiplet / other cluster  3%
+remote chiplet                 2%
+```
+
+the local V2.4 C++ compiler reached a model point of **100% issue utilization / 14.7456 T EML/s** using an 8x super-wavefront, compile-time bank coloring, local forwarding, 1/3/5-stage express paths, eight static circuit planes and 256 scheduled package words/output/cycle.
+
+That is architecture-cycle-model evidence, **not FPGA/ASIC evidence**. Adversarial high-cut and narrow reduction graphs remain explicit negative controls.
+
+A separate exact-LUT host benchmark measured the current CPU software kernel in the hundreds of millions of EML/s; see the benchmark report for the observed range and methodology.
 
 ## Repository layout
 
 ```text
-config/                 machine-readable baseline assumptions
-spec/                   architecture + EML ISA/dataflow contracts
-calculations/           reproducible area/power/bandwidth models
-hardware/3d/            package models (OpenSCAD + STL)
-hardware/rtl/           RTL/FPGA implementation plan
-software/               compiler/runtime/QEMU integration plan
+config/                 machine-readable assumptions
+spec/                   architecture + ISA/dataflow contracts
+calculations/           reproducible area/power/bandwidth/compiler models
+compiler/               placement, routing and global wavefront compilers
+bench/                  host-side measured benchmarks
+hardware/3d/            package/chiplet OpenSCAD models
+hardware/rtl/           RTL/FPGA proof implementation
+software/               reference executors, XPU/XPUR/XPUW and device models
 ```
 
 ## Current claim boundary
 
-Implemented here now:
+Implemented or modeled here now:
 
-- reproducible analytical model;
-- explicit assumptions and sensitivity equations;
-- EML-XPU ISA/dataflow draft;
-- 2.5D package floorplan;
-- parametric OpenSCAD 3D model;
-- ready-to-open ASCII STL package model;
-- FPGA/QEMU/RTL work breakdown.
+- Q16.16 EML reference + LUT hardware semantics;
+- `.xpu` semantic graph format;
+- `.xpur` distributed routed-token lowering;
+- `.xpuw` walker-free static wavefront lowering;
+- V2.1 central fallback RTL;
+- V2.2 distributed routed-token RTL;
+- V2.3 walker-free tile RTL;
+- V2.4 package-scale C++ placement/route/time-slot compiler model;
+- 2.5D package and compute-chiplet 3D floorplans;
+- bounded capability/device ABI model.
 
 Not claimed yet:
 
-- fabricated EML cell;
-- timing-closed RTL;
-- validated cell area/energy from synthesis;
-- physical HBM/CXL controller;
-- SSD-class persistent medium integrated in silicon;
-- GPU/CPU replacement benchmark equivalence.
+- timing-closed V2.4 switch fabric;
+- measured FPGA/ASIC Fmax, pJ/EML or pJ/routed-bit;
+- exact per-switch global route coloring proof for the full package;
+- physical HBM/CXL/UCIe controller implementation;
+- CPU/GPU replacement benchmark equivalence.
 
 ## Immediate roadmap
 
-1. Freeze EML numeric semantics and bit-exact reference evaluator.
-2. Implement one synthesizable EML lane and measure area/Fmax/pJ per primitive on FPGA/ASIC libraries.
-3. Build tiled scheduler + NoC + local SRAM model.
-4. Extend the existing four-sector XPU transport into a QEMU MMIO/DMA device.
-5. Run kernels through software reference == QEMU == FPGA equivalence tests.
-6. Replace modeled area/power coefficients with synthesis/measurement evidence.
+1. V2.5 exact per-switch Clos/radix/flattened-butterfly coloring rather than aggregate stage capacity.
+2. Emit real switch SRAM/time-slot images from the compiler.
+3. Synthesize route plane + schedule SRAM + 8-lane tile on FPGA.
+4. Replace modeled route latency/capacity/energy with measured values.
+5. Feed real application-emitted EML DAGs into the V2.4/V2.5 compiler corpus.
 
-See `calculations/XPU_V1_BASELINE.md` and `hardware/3d/xpu_package.scad` first.
+Start with:
+
+- `spec/XPU_V24_GLOBAL_WAVEFRONT.md`
+- `calculations/XPU_V24_LOCAL_BENCHMARK.md`
+- `compiler/xpu_v24_global_wavefront.cpp`
+- `bench/eml_q16_host_bench.cpp`
