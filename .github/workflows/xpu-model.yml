@@ -1,4 +1,4 @@
-name: XPU model, DSE, routed RTL and 3D
+name: XPU model, DSE, wavefront RTL and 3D
 
 on:
   push:
@@ -31,6 +31,11 @@ jobs:
         run: |
           python3 calculations/xpu_v2_noc.py | tee artifacts/xpu_v2_noc.txt
           python3 calculations/xpu_v22_route_budget.py | tee artifacts/xpu_v22_route_budget.txt
+
+      - name: Run V2.3 walker-elimination and wavefront capacity model
+        run: |
+          python3 calculations/xpu_v23_wavefront.py | tee artifacts/xpu_v23_wavefront.txt
+          grep -q 'runtime dependency-control events = 0' artifacts/xpu_v23_wavefront.txt
 
       - name: Run locality-aware compiler placement benchmark
         run: |
@@ -79,6 +84,14 @@ jobs:
           test -s artifacts/demo_graph.xpur
           grep -q 'XPU_V22_XPUR_PASS' artifacts/xpur_conformance.txt
           cmp artifacts/demo_graph.xpu artifacts/demo_from_xpur.xpu
+
+      - name: Lower XPU to XPUW and execute walker-free wavefront image
+        run: |
+          python3 software/reference/xpuw_image.py --out artifacts/demo_graph.xpuw \
+            | tee artifacts/xpuw_conformance.txt
+          test -s artifacts/demo_graph.xpuw
+          grep -q 'XPU_V23_WAVEFRONT_PASS' artifacts/xpuw_conformance.txt
+          grep -q 'outputs=(57577, 157774)' artifacts/xpuw_conformance.txt
 
       - name: Run bounded XPU Device ABI host model
         run: |
@@ -145,6 +158,25 @@ jobs:
           vvp build/xpu_v22_routed_tb | tee artifacts/xpu_v22_routed_rtl.txt
           grep -q 'XPU_V22_ROUTED_TILE_PASS' artifacts/xpu_v22_routed_rtl.txt
 
+      - name: Compile V2.3 static multicast plane
+        run: |
+          iverilog -g2012 -Wall -s xpu_static_multicast_plane_v23 \
+            -o build/xpu_v23_multicast_compile \
+            hardware/rtl/xpu_static_multicast_plane_v23.sv
+
+      - name: Compile and run V2.3 walker-free wavefront tile
+        run: |
+          iverilog -g2012 -Wall -s tb_xpu_wavefront_tile_v23 \
+            -o build/xpu_v23_wavefront_tb \
+            hardware/rtl/eml_lane_lut.sv \
+            hardware/rtl/eml_tile.sv \
+            hardware/rtl/xpu_wavefront_schedule_v23.sv \
+            hardware/rtl/xpu_wavefront_ingress_v23.sv \
+            hardware/rtl/xpu_wavefront_tile_v23.sv \
+            hardware/rtl/tb_xpu_wavefront_tile_v23.sv
+          vvp build/xpu_v23_wavefront_tb | tee artifacts/xpu_v23_wavefront_rtl.txt
+          grep -q 'XPU_V23_WAVEFRONT_TILE_PASS' artifacts/xpu_v23_wavefront_rtl.txt
+
       - name: Export V1 ASCII STL
         run: |
           python3 hardware/3d/export_stl.py
@@ -157,10 +189,10 @@ jobs:
           test -s hardware/3d/xpu_v2_package.stl
           head -n 1 hardware/3d/xpu_v2_package.stl | grep -q '^solid shtenco_xpu_v2'
 
-      - name: Upload XPU V2 engineering artifacts
+      - name: Upload XPU engineering artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: xpu-v2-engineering-artifacts
+          name: xpu-v23-engineering-artifacts
           path: |
             artifacts/
             hardware/rtl/generated/*.memh
