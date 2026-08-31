@@ -14,7 +14,7 @@ tiles/system                     1536
 clock                            1.2 GHz
 modeled sustained utilization    72%
 V2.3 operand ingress/tile        24 values/cycle
-V2.3 operand banks/tile          32 banks
+V2.3 operand banks/tile          32 A banks + 32 B banks
 ```
 
 ## 1. Why the central walker is removed, not optimized
@@ -37,22 +37,25 @@ A 10,000x-class throughput gap is not a reasonable target for a centralized meta
 
 ## 2. V2.3 distributed acceptance capacity
 
-Each 8-lane tile has 24 operand ingress positions/cycle and 32 independently addressable operand banks.
+Each 8-lane tile has 24 operand ingress positions/cycle. Operand A and operand B use separate 32-bank planes, matching the fact that the EML lane consumes two distinct operand arrays.
 
 System-wide capacity:
 
 ```text
 1536 tiles * 24 ports * 1.2 GHz = 44.2368 T operand writes/s
-1536 tiles * 32 banks * 1.2 GHz = 58.9824 T bank accepts/s
+1536 tiles * 32 banks * 1.2 GHz = 58.9824 T writes/s per slot plane
+A+B physical bank endpoints       = 117.9648 T writes/s combined
 ```
+
+The 24 ingress ports remain the intended front-door limit; the split banks prevent false A-vs-B conflicts and leave the SRAM side comfortably overprovisioned.
 
 Headroom:
 
-| Compute point | Operand demand | 24-port headroom | 32-bank headroom |
-|---|---:|---:|---:|
-| 10.616832 T EML/s | 21.233664 T/s | 2.083x | 2.778x |
-| 14.745600 T EML/s | 29.491200 T/s | 1.500x | 2.000x |
-| 14.933000 T EML/s | 29.866000 T/s | 1.481x | 1.975x |
+| Compute point | Operand demand | 24-port headroom | Conservative one-slot 32-bank headroom | Split A+B physical headroom |
+|---|---:|---:|---:|---:|
+| 10.616832 T EML/s | 21.233664 T/s | 2.083x | 2.778x | 5.556x |
+| 14.745600 T EML/s | 29.491200 T/s | 1.500x | 2.000x | 4.000x |
+| 14.933000 T EML/s | 29.866000 T/s | 1.481x | 1.975x | 3.950x |
 
 Thus even the distributed dynamic V2.2/V2.3 operand fabric can match the event class that the centralized walker cannot.
 
@@ -94,8 +97,10 @@ binary operands    = 19.2 G operand arrivals/s
 V2.3 tile capacity:
 
 ```text
-24 ingress * 1.2 GHz = 28.8 G/s   = 1.50x headroom
-32 banks   * 1.2 GHz = 38.4 G/s   = 2.00x headroom
+24 ingress * 1.2 GHz       = 28.8 G/s = 1.50x headroom
+32 A banks * 1.2 GHz       = 38.4 G/s
+32 B banks * 1.2 GHz       = 38.4 G/s
+combined A+B bank endpoints = 76.8 G/s = 4.00x raw operand demand
 ```
 
 This is why the scaling unit is the **tile**, not a global scheduler.
@@ -124,7 +129,7 @@ For the 72%-sustained model and a compiler target of only 2% inter-chiplet edges
 Payload requirement:
 
 ```text
-48-bit tagged token: 0.6370 TB/s/chiplet
+48-bit tagged token:    0.6370 TB/s/chiplet
 32-bit scheduled value: 0.4247 TB/s/chiplet
 ```
 
