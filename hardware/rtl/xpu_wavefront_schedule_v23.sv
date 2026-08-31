@@ -44,9 +44,16 @@ module xpu_wavefront_schedule_v23 #(
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
+        integer l;
+        integer s;
         if (!rst_n) begin
             running <= 1'b0;
             phase <= '0;
+            // FPGA proof determinism. A production SRAM implementation may use
+            // a loader-valid bitmap instead of resetting the whole schedule RAM.
+            for (l = 0; l < LANES; l = l + 1)
+                for (s = 0; s < SLOTS; s = s + 1)
+                    sched_valid[l][s] <= 1'b0;
         end else begin
             if (cfg_we) begin
                 sched_valid[cfg_lane][cfg_slot] <= cfg_valid;
