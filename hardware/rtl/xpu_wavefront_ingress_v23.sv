@@ -2,8 +2,11 @@
 //
 // Static fast-path tokens carry only the Q16.16 value. Destination node and
 // operand slot are selected by (phase, ingress port), i.e. time is the tag.
-// The compiler must make bank writes conflict-free. Any collision is a sticky
-// schedule fault rather than a retry path.
+// A and B operands are physically separate bank planes, so A and B of the same
+// node may arrive in one cycle without a false bank conflict.
+//
+// The compiler must make writes conflict-free inside each slot plane. Any
+// collision is a sticky schedule fault rather than a retry path.
 
 module xpu_wavefront_ingress_v23 #(
     parameter integer NODES = 256,
@@ -52,7 +55,8 @@ module xpu_wavefront_ingress_v23 #(
     logic [NODES-1:0] valid_a;
     logic [NODES-1:0] valid_b;
 
-    logic [BANKS-1:0] bank_taken;
+    logic [BANKS-1:0] bank_taken_a;
+    logic [BANKS-1:0] bank_taken_b;
     logic [PORTS-1:0] accept_port;
     logic conflict_c;
     logic unmapped_c;
@@ -62,7 +66,8 @@ module xpu_wavefront_ingress_v23 #(
     integer accepts_c;
 
     always_comb begin
-        bank_taken = '0;
+        bank_taken_a = '0;
+        bank_taken_b = '0;
         accept_port = '0;
         conflict_c = 1'b0;
         unmapped_c = 1'b0;
@@ -74,12 +79,22 @@ module xpu_wavefront_ingress_v23 #(
                     unmapped_c = 1'b1;
                 end else begin
                     bank = map_node[p][phase] % BANKS;
-                    if (bank_taken[bank]) begin
-                        conflict_c = 1'b1;
+                    if (!map_slot[p][phase]) begin
+                        if (bank_taken_a[bank]) begin
+                            conflict_c = 1'b1;
+                        end else begin
+                            bank_taken_a[bank] = 1'b1;
+                            accept_port[p] = 1'b1;
+                            accepts_c = accepts_c + 1;
+                        end
                     end else begin
-                        bank_taken[bank] = 1'b1;
-                        accept_port[p] = 1'b1;
-                        accepts_c = accepts_c + 1;
+                        if (bank_taken_b[bank]) begin
+                            conflict_c = 1'b1;
+                        end else begin
+                            bank_taken_b[bank] = 1'b1;
+                            accept_port[p] = 1'b1;
+                            accepts_c = accepts_c + 1;
+                        end
                     end
                 end
             end
@@ -113,6 +128,8 @@ module xpu_wavefront_ingress_v23 #(
                 map_slot[cfg_map_port][cfg_map_phase] <= cfg_map_slot;
             end
 
+            // Clear the consumed generation. New values accepted later in this
+            // same edge take precedence and may start the next static epoch.
             for (i = 0; i < LANES; i = i + 1) begin
                 if (consume_valid[i]) begin
                     valid_a[consume_node[i]] <= 1'b0;
