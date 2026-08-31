@@ -37,6 +37,19 @@ jobs:
           python3 calculations/xpu_v23_wavefront.py | tee artifacts/xpu_v23_wavefront.txt
           grep -q 'runtime dependency-control events = 0' artifacts/xpu_v23_wavefront.txt
 
+      - name: Compile and smoke-test V2.4 global wavefront compiler
+        run: |
+          g++ -O2 -std=c++20 compiler/xpu_v24_global_wavefront.cpp -o build/xpu_v24_global_wavefront
+          build/xpu_v24_global_wavefront \
+            --nodes 196608 \
+            --roots 98304 \
+            --profile target_80_15_3_2 \
+            --topology express \
+            --planes 8 \
+            --package-words 256 \
+            | tee artifacts/xpu_v24_global_wavefront.txt
+          grep -q 'XPU_V24_GLOBAL_COMPILER_PASS' artifacts/xpu_v24_global_wavefront.txt
+
       - name: Run locality-aware compiler placement benchmark
         run: |
           python3 compiler/place_graph.py \
@@ -67,6 +80,15 @@ jobs:
 
       - name: Verify LUT/interpolation against Decimal EML
         run: python3 software/reference/eml_lut_model.py --samples 50000 | tee artifacts/eml_lut_accuracy.txt
+
+      - name: Compile and smoke-test exact-LUT host EML benchmark
+        run: |
+          g++ -O3 -fopenmp -std=c++20 bench/eml_q16_host_bench.cpp -o build/eml_q16_host_bench
+          OMP_NUM_THREADS=2 build/eml_q16_host_bench \
+            hardware/rtl/generated/exp_q16.memh \
+            hardware/rtl/generated/ln_q16.memh \
+            1000000 | tee artifacts/eml_q16_host_bench.txt
+          grep -q 'XPU_V24_HOST_EML_BENCH_PASS' artifacts/eml_q16_host_bench.txt
 
       - name: Pack, validate and execute XPU semantic graph
         run: |
@@ -192,7 +214,7 @@ jobs:
       - name: Upload XPU engineering artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: xpu-v23-engineering-artifacts
+          name: xpu-v24-engineering-artifacts
           path: |
             artifacts/
             hardware/rtl/generated/*.memh
