@@ -48,7 +48,6 @@ module tb_xpu_wavefront_tile_v23;
     logic [63:0] accepted_input_values;
     logic [63:0] issued_eml_ops;
 
-    logic signed [31:0] node3_value;
     logic got_node3;
     logic got_node4;
 
@@ -127,13 +126,15 @@ module tb_xpu_wavefront_tile_v23;
             fabric_in_value[1] = 32'sd98304; // 1.5 Q16.16
         end
 
-        // Node3 result becomes visible in phase 2. The static fabric loops it
-        // into node4.A while node4.B receives the precompiled constant 1.0.
-        if (running && phase == 2 && got_node3) begin
+        // Node3's registered EML result is physically present during phase 2.
+        // Feed it directly through the static fabric; no software-style
+        // got_node3 state participates in the datapath timing.
+        if (running && phase == 2 && fabric_out_valid[0] &&
+            fabric_out_node_debug[0] == 4'd3) begin
             fabric_in_valid[0] = 1'b1;
-            fabric_in_value[0] = node3_value;
+            fabric_in_value[0] = fabric_out_value[0];
             fabric_in_valid[1] = 1'b1;
-            fabric_in_value[1] = 32'sd65536; // 1.0 Q16.16
+            fabric_in_value[1] = 32'sd65536; // node4.B = 1.0 Q16.16
         end
     end
 
@@ -141,7 +142,6 @@ module tb_xpu_wavefront_tile_v23;
         if (!rst_n) begin
             got_node3 <= 1'b0;
             got_node4 <= 1'b0;
-            node3_value <= 32'sd0;
         end else begin
             if (fabric_out_valid[0]) begin
                 if (fabric_out_node_debug[0] == 4'd3) begin
@@ -149,7 +149,6 @@ module tb_xpu_wavefront_tile_v23;
                         $display("XPU_V23_FAIL node3=%0d", fabric_out_value[0]);
                         $fatal(1);
                     end
-                    node3_value <= fabric_out_value[0];
                     got_node3 <= 1'b1;
                 end else if (fabric_out_node_debug[0] == 4'd4) begin
                     if (fabric_out_value[0] !== 32'sd157774) begin
