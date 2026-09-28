@@ -103,3 +103,28 @@ README должен показывать: проблему → архитект�
 Репозиторий не присваивает полномочия соседнего домена: AI ≠ authorization, UI ≠ ledger, blockchain commitment ≠ accounting truth, backtest ≠ realized external P&L.
 
 <!-- SYNERGY-FEDERATION-PASSPORT:END -->
+
+---
+
+# 🧩 Глубокий доказательный паспорт XPU
+
+## Что уже materialized
+
+`main` содержит machine-readable baseline, analytical model, EML Q16 reference evaluator, ISA/architecture specs, OpenSCAD package model и CI model workflow.
+
+```mermaid
+flowchart LR
+    SPEC[EML ISA] --> REF[Q16 reference evaluator]
+    CFG[xpu_v1_baseline.json] --> MODEL[xpu_v1_model.py]
+    MODEL --> METRICS[Area/power/bandwidth estimates]
+    SPEC --> RTL[Future RTL]
+    REF --> QEMU[Future QEMU device]
+```
+
+## Claim boundary
+
+`7.077888 T EML primitives/s` — analytical ceiling из заданных параметров, не measured silicon throughput и не FLOPS/TOPS equivalent.
+
+## Следующий рубеж
+
+bit-exact semantics freeze → synthesizable lane → FPGA synthesis/Fmax/power → reference=RTL equivalence → measured coefficients replace modeled assumptions.
