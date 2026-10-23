@@ -75,17 +75,17 @@ See `calculations/XPU_V1_BASELINE.md` and `hardware/3d/xpu_package.scad` first.
 <!-- SYNERGY-FEDERATION-PASSPORT:START -->
 ---
 
-## 🧭 SYNERGY federation passport
+##  SYNERGY federation passport
 
-**Домен:** 🧩 XPU / hardware description  
+**Домен:**  XPU / hardware description  
 **Архитектурный родитель:** [`synergy_meta_os`](https://github.com/Shtenco/synergy_meta_os)  
 **Архитектурный корень:** [`synergy_system`](https://github.com/Shtenco/synergy_system)
 
 ```mermaid
 flowchart LR
-    SYS[🧭 synergy_system] --> P[synergy_meta_os]
+    SYS[ synergy_system] --> P[synergy_meta_os]
     P --> THIS[synergy_motherboard_xpu_xml]
-    THIS --> E[📦 Evidence / outputs]
+    THIS --> E[ Evidence / outputs]
 ```
 
 ### Документационный контракт
@@ -94,9 +94,9 @@ README должен показывать: проблему → архитект�
 
 ### Навигация
 
-- [📚 Атлас всех 75 репозиториев](https://github.com/Shtenco/synergy_system/blob/main/docs/SYNERGY_REPOSITORY_ATLAS.md)
-- [🧾 Машиночитаемый registry](https://github.com/Shtenco/synergy_system/blob/main/registry/SYNERGY_REPOSITORIES.json)
-- [🧭 SYNERGY SYSTEM](https://github.com/Shtenco/synergy_system)
+- [ Атлас всех 75 репозиториев](https://github.com/Shtenco/synergy_system/blob/main/docs/SYNERGY_REPOSITORY_ATLAS.md)
+- [ Машиночитаемый registry](https://github.com/Shtenco/synergy_system/blob/main/registry/SYNERGY_REPOSITORIES.json)
+- [ SYNERGY SYSTEM](https://github.com/Shtenco/synergy_system)
 
 ### Authority rule
 
@@ -106,7 +106,7 @@ README должен показывать: проблему → архитект�
 
 ---
 
-# 🧩 Глубокий доказательный паспорт XPU
+#  Глубокий доказательный паспорт XPU
 
 ## Что уже materialized
 
