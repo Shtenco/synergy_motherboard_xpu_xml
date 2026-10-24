@@ -1,3 +1,9 @@
+<!-- RESEARCH-V2-2026:START -->
+<img src="assets/readme/scientific-process-v2.svg" width="100%" alt="EML XPU / PERSISTENT DATAFLOW"/>
+
+[Полное научное досье V2](docs/SCIENTIFIC_DOSSIER_V2_2026.md) — исследовательский вклад, математика и воспроизводимость. Весь прежний README сохранён.
+<!-- RESEARCH-V2-2026:END -->
+
 # SHTENCO Motherboard XPU / EML
 
 Research and engineering repository for a **persistent programmable dataflow XPU** built around EML computational primitives.
